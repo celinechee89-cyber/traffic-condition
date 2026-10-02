@@ -15,6 +15,7 @@ import {
   LiveTrafficMapScreen,
 } from "./components/SecondaryScreens";
 import {
+  ApiHealthModal,
   ClosureBlueprintModal,
   EnlargeCameraModal,
   ReportHazardModal,
@@ -66,6 +67,30 @@ export default function App() {
   const [hazardModalOpen, setHazardModalOpen] = useState(false);
   const [singpassModalOpen, setSingpassModalOpen] = useState(false);
   const [isSingpassLoggedIn, setIsSingpassLoggedIn] = useState(false);
+  const [apiHealthModalOpen, setApiHealthModalOpen] = useState(false);
+  const [liveIncidentsCount, setLiveIncidentsCount] = useState<number>(8);
+  const [liveFloodCount, setLiveFloodCount] = useState<number>(0);
+
+  // Poll /api/traffic-incidents and /api/flood-alerts
+  React.useEffect(() => {
+    fetch("/api/traffic-incidents")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.value && Array.isArray(data.value)) {
+          setLiveIncidentsCount(data.value.length);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/flood-alerts")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.value && Array.isArray(data.value)) {
+          setLiveFloodCount(data.value.length);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const cctvBoxRef = useRef<HTMLDivElement>(null);
   const slePinRef = useRef<HTMLDivElement>(null);
@@ -547,10 +572,16 @@ export default function App() {
                   </span>
                 </div>
                 <div className="flex items-center gap-space-md">
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container-lowest text-primary font-label-sm text-label-sm shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setApiHealthModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container-lowest text-primary font-label-sm text-label-sm shadow-sm hover:bg-surface-container transition-colors cursor-pointer"
+                    title="Click to check LTA DataMall and OneMap API health status"
+                  >
                     <span className="w-2 h-2 rounded-full bg-on-tertiary-container animate-pulse"></span>
-                    EMAS Telemetry Sync: Online
-                  </span>
+                    <span>EMAS Telemetry Sync: Online</span>
+                    <span className="material-symbols-outlined text-[13px] text-outline">info</span>
+                  </button>
                   <span className="text-on-surface-variant font-label-sm text-label-sm hidden md:inline">
                     Data Refreshed: Today, 09:24 SGT
                   </span>
@@ -2399,6 +2430,11 @@ export default function App() {
           setIsSingpassLoggedIn(true);
           triggerToast("Singpass authenticated: Vehicle SBA 8824 X linked.");
         }}
+      />
+
+      <ApiHealthModal
+        open={apiHealthModalOpen}
+        onClose={() => setApiHealthModalOpen(false)}
       />
     </div>
   );

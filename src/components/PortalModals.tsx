@@ -438,3 +438,259 @@ export const SingpassModal: React.FC<{
     </div>
   );
 };
+
+export const ApiHealthModal: React.FC<{
+  open: boolean;
+  onClose: () => void;
+}> = ({ open, onClose }) => {
+  const [loading, setLoading] = useState(false);
+  const [healthData, setHealthData] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<"status" | "raw" | "env">("status");
+
+  const fetchHealth = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/health");
+      const data = await res.json();
+      setHealthData(data);
+    } catch (err) {
+      setHealthData({ error: "Failed to connect to /api/health endpoint", details: String(err) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (open) {
+      fetchHealth();
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-primary/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface-container-lowest rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-primary text-on-primary px-space-md py-space-sm flex items-center justify-between">
+          <div className="flex items-center gap-space-xs">
+            <span className="material-symbols-outlined text-tertiary-fixed text-[20px]">
+              monitor_heart
+            </span>
+            <span className="font-headline-sm text-headline-sm">
+              LTA DataMall &amp; OneMap API Health Monitor
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchHealth}
+              disabled={loading}
+              className="p-1 rounded hover:bg-primary-container text-on-primary flex items-center gap-1 text-[12px]"
+              title="Refresh Health Probe"
+            >
+              <span className={`material-symbols-outlined text-[16px] ${loading ? "animate-spin" : ""}`}>
+                refresh
+              </span>
+              <span>Re-check</span>
+            </button>
+            <button onClick={onClose} className="p-1 rounded hover:bg-primary-container text-on-primary flex">
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-surface-container-low px-space-md py-2 border-b border-surface-container flex items-center gap-2 text-label-sm font-label-sm">
+          <button
+            onClick={() => setActiveTab("status")}
+            className={`px-3 py-1 rounded transition-colors ${
+              activeTab === "status" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            Endpoint Status
+          </button>
+          <button
+            onClick={() => setActiveTab("env")}
+            className={`px-3 py-1 rounded transition-colors ${
+              activeTab === "env" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            Vercel Environment Keys
+          </button>
+          <button
+            onClick={() => setActiveTab("raw")}
+            className={`px-3 py-1 rounded transition-colors ${
+              activeTab === "raw" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            Raw JSON (/api/health)
+          </button>
+        </div>
+
+        <div className="p-space-md max-h-[70vh] overflow-y-auto">
+          {loading && !healthData && (
+            <div className="py-12 flex flex-col items-center justify-center text-on-surface-variant gap-2">
+              <span className="material-symbols-outlined text-[32px] animate-spin text-primary">
+                progress_activity
+              </span>
+              <span>Probing LTA DataMall and OneMap endpoints...</span>
+            </div>
+          )}
+
+          {healthData && activeTab === "status" && (
+            <div className="flex flex-col gap-space-md">
+              <div className="p-space-sm rounded-lg bg-surface-container flex items-center justify-between">
+                <div>
+                  <div className="font-label-sm text-label-sm text-on-surface-variant uppercase">
+                    Overall Health Status
+                  </div>
+                  <div className="text-[18px] font-bold text-primary flex items-center gap-2">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        healthData.status === "OK"
+                          ? "bg-on-tertiary-container"
+                          : healthData.status === "CONFIG_REQUIRED"
+                          ? "bg-secondary-container"
+                          : "bg-error"
+                      }`}
+                    />
+                    <span>{healthData.status || "UNKNOWN"}</span>
+                  </div>
+                </div>
+                <div className="text-right text-body-sm text-on-surface-variant">
+                  <div>Platform: {healthData.environment?.platform}</div>
+                  <div className="text-[11px] font-mono">
+                    Probe Latency: {healthData.totalLatencyMs ?? 0}ms
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <span className="font-label-sm text-label-sm uppercase font-bold text-primary">
+                  Monitored Services
+                </span>
+
+                {healthData.apis &&
+                  Object.entries(healthData.apis).map(([key, svc]: [string, any]) => (
+                    <div
+                      key={key}
+                      className="p-space-sm rounded-lg bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-1 border border-surface-container"
+                    >
+                      <div>
+                        <div className="font-headline-sm text-[13px] text-primary font-bold">
+                          {svc.name}
+                        </div>
+                        <div className="text-[11px] text-on-surface-variant font-mono truncate max-w-md">
+                          {svc.endpoint}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                        {svc.latencyMs !== null && (
+                          <span className="text-[11px] font-mono text-on-surface-variant">
+                            {svc.latencyMs}ms
+                          </span>
+                        )}
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase ${
+                            svc.status === "HEALTHY"
+                              ? "bg-tertiary-fixed text-on-tertiary-fixed"
+                              : svc.status === "FALLBACK_READY" || svc.status.includes("FALLBACK")
+                              ? "bg-secondary-fixed text-on-secondary-fixed"
+                              : "bg-error-container text-on-error-container"
+                          }`}
+                        >
+                          {svc.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              {healthData.notes && healthData.notes.length > 0 && (
+                <div className="p-space-sm rounded bg-surface-container-high text-[12px] text-on-surface flex flex-col gap-1">
+                  <span className="font-bold flex items-center gap-1 text-primary">
+                    <span className="material-symbols-outlined text-[15px]">info</span>
+                    <span>System Notes</span>
+                  </span>
+                  {healthData.notes.map((note: string, idx: number) => (
+                    <p key={idx} className="text-on-surface-variant">
+                      • {note}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {healthData && activeTab === "env" && (
+            <div className="flex flex-col gap-space-md text-body-sm">
+              <p className="text-on-surface-variant">
+                Configure these environment variables in your <strong>Vercel Project Settings &gt; Environment Variables</strong> to switch from fallback telemetry to live streams.
+              </p>
+
+              <div className="p-space-md rounded-lg bg-surface-container-low border border-surface-container flex flex-col gap-space-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-primary text-[14px]">
+                    LTA_ACCOUNT_KEY
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded font-label-sm text-label-sm ${
+                      healthData.environment?.hasLtaKey
+                        ? "bg-tertiary-fixed text-on-tertiary-fixed"
+                        : "bg-error-container text-on-error-container font-bold"
+                    }`}
+                  >
+                    {healthData.environment?.hasLtaKey ? "CONFIGURED" : "NOT SET (Using Verified Fallback)"}
+                  </span>
+                </div>
+                <p className="text-[12px] text-on-surface-variant">
+                  Used by <code>/api/traffic-incidents</code>, <code>/api/travel-times</code>, and <code>/api/flood-alerts</code>. Obtained from <a href="https://datamall.lta.gov.sg" target="_blank" rel="noreferrer" className="text-primary underline">LTA DataMall</a>.
+                </p>
+              </div>
+
+              <div className="p-space-md rounded-lg bg-surface-container-low border border-surface-container flex flex-col gap-space-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-primary text-[14px]">
+                    ONEMAP_ACCOUNT_KEY
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded font-label-sm text-label-sm ${
+                      healthData.environment?.hasOneMapKey
+                        ? "bg-tertiary-fixed text-on-tertiary-fixed"
+                        : "bg-error-container text-on-error-container font-bold"
+                    }`}
+                  >
+                    {healthData.environment?.hasOneMapKey ? "CONFIGURED" : "NOT SET (Using Modeled Fallback)"}
+                  </span>
+                </div>
+                <p className="text-[12px] text-on-surface-variant">
+                  Used by <code>/api/route</code>. Obtained from <a href="https://www.onemap.gov.sg/apidocs/" target="_blank" rel="noreferrer" className="text-primary underline">OneMap Developer Portal</a>.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {healthData && activeTab === "raw" && (
+            <pre className="p-space-sm bg-primary text-tertiary-fixed rounded-lg text-[11px] font-mono overflow-x-auto max-h-96">
+              {JSON.stringify(healthData, null, 2)}
+            </pre>
+          )}
+        </div>
+
+        <div className="p-space-sm bg-surface-container-low border-t border-surface-container flex items-center justify-between text-[11px] text-on-surface-variant">
+          <span>Direct endpoint: <code>GET /api/health</code></span>
+          <button
+            onClick={onClose}
+            className="px-space-md py-1.5 rounded bg-primary text-on-primary font-label-md text-label-md"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
